@@ -1,8 +1,25 @@
 import streamlit as st
-from components.loader import load_document
-from components.models.vector_store import add_data, retrieving_data, clean_data
-from components.prompt import results_template
-from components.models.text_generation import write_message
+from langchain_ollama.llms import OllamaLLM
+from langchain_core.prompts import ChatPromptTemplate
+from vector import retriever
+
+# Preparação do modelo
+model = OllamaLLM(model="llama3.2")
+
+template = '''
+    Você é um assistente de saúde virtual que entende de remédios e conhece a bula de todos eles
+
+    Aqui estão as bulas relevantes, elas são fontes confiáveis: {bulas}
+    Esta é a pergunta que você deve responder: {pergunta}
+'''
+
+prompt = ChatPromptTemplate.from_template(template)
+chain = prompt | model
+
+def write_answer(pergunta):
+    bulas = retriever.invoke(pergunta)
+    return chain.invoke({'bulas': bulas, 'pergunta': pergunta})
+
 
 # Configuração da página
 st.set_page_config(
@@ -43,8 +60,11 @@ if input := st.chat_input("Digite algo"):
 
 # Saída
 if st.session_state.messages[-1]["role"] == "user": # Verificar se a última mensagem foi do usuário
+
     with st.chat_message("assistant"):
-        answer = write_message(input)
+        st.spinner("A IA está pensando...")
+        answer = write_answer(input)
         st.markdown(answer)
 
+    
     add_message("assistant", answer)
